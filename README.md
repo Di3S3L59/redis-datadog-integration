@@ -1,4 +1,4 @@
-# redis-datadog-guardian
+# redis-datadog-integration
 
 ## Présentation
 
