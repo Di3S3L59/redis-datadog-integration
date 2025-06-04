@@ -1,0 +1,31 @@
+---
+- name: Collect Redis and Sentinel service facts
+  ansible.builtin.service_facts:
+
+- name: Initialize Redis and Sentinel service name variables
+  set_fact:
+    redis_service_name: ""
+    sentinel_service_name: ""
+
+- name: Find and register Redis service name
+  set_fact:
+    redis_service_name: "{{ item.key }}"
+  when: "'redis' in item.key.lower()"
+  loop: "{{ ansible_facts.services | dict2items }}"
+
+- name: Find and register Sentinel service name
+  set_fact:
+    sentinel_service_name: "{{ item.key }}"
+  when: "'sentinel' in item.key.lower()"
+  loop: "{{ ansible_facts.services | dict2items }}"
+
+- name: Display Redis and Sentinel service status
+  ansible.builtin.debug:
+    msg:
+      - "Redis service: {{ '❌ Not found' if redis_service_name == '' else '✔️ Found: ' + redis_service_name }}"
+      - "Sentinel service: {{ '❌ Not found' if sentinel_service_name == '' else '✔️ Found: ' + sentinel_service_name }}"
+
+- name: Fail if Redis or Sentinel services are not found
+  fail:
+    msg: "{{ inventory_hostname }}: Redis or Sentinel services are not found. Missing services: {{ 'Redis' if redis_service_name == '' else '' }} {{ 'Sentinel' if sentinel_service_name == '' else '' }}. Exiting playbook."
+  when: redis_service_name == "" or sentinel_service_name == ""

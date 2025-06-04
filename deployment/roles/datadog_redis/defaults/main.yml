@@ -1,0 +1,24 @@
+---
+# # Variables par défaut pour le rôle datadog_redis
+
+# # Environnement (utilisé pour les tags Datadog)
+# env: production
+
+# # Options de configuration supplémentaires
+# redis_port: 6379
+# redis_host: localhost
+
+# # Options de collecte de métriques
+# collect_command_stats: true
+# collect_info: true
+# collect_keyspace_stats: true
+# collect_memory_stats: true
+# collect_replication_stats: true
+# collect_slowlog_stats: true
+
+# # Options de découverte automatique
+# auto_discovery: true
+# discovery_interval: 60
+
+# # Options de slowlog
+# slowlog_max_len: 128 

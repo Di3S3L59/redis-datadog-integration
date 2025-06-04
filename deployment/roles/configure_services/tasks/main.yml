@@ -1,0 +1,44 @@
+---
+- name: Check if Redis service is active
+  command: systemctl is-active {{ redis_service_name }}
+  register: redis_status
+  ignore_errors: yes
+
+- name: Check if Sentinel service is active
+  command: systemctl is-active {{ sentinel_service_name }}
+  register: sentinel_status
+  ignore_errors: yes
+
+- name: Display server name and service status
+  debug:
+    msg: |
+      Server: {{ ansible_hostname }}
+      Redis Service: {{ '✔️' if redis_status.rc == 0 else '❌' }}
+      Sentinel Service: {{ '✔️' if sentinel_status.rc == 0 else '❌' }}
+
+- name: Fail if Redis or Sentinel services are not active
+  fail:
+    msg: "Redis or Sentinel services are not active. Exiting playbook."
+  when: redis_status.rc != 0 or sentinel_status.rc != 0
+
+- name: Configure timeout Start for Redis service
+  ansible.builtin.lineinfile:
+    path: /etc/systemd/system/{{ redis_service_name }}
+    regexp: '^TimeoutStartSec='
+    insertafter: '^\[Service\]'
+    line: 'TimeoutStartSec=600'
+    state: present
+    backup: true
+
+- name: Configure timeout Stop for Redis service
+  ansible.builtin.lineinfile:
+    path: /etc/systemd/system/{{ redis_service_name }}
+    insertafter: '^\[Service\]'
+    regexp: '^TimeoutStopSec='
+    line: 'TimeoutStopSec=600'
+    state: present
+    backup: true
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true

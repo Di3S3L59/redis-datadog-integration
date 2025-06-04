@@ -1,0 +1,9 @@
+---
+- name: Redémarrer Redis replica
+  ansible.builtin.systemd:
+    name: "{{ redis_service_name }}"
+    state: restarted
+  when:
+    - redis_service_name is defined
+    - ansible_facts.services[redis_service_name].state is defined
+    - ansible_facts.services[redis_service_name].state == 'active'

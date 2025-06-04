@@ -1,0 +1,67 @@
+---
+# Récupérer le répertoire parent des logs Redis
+- name: Récupérer le répertoire parent des logs Redis
+  ansible.builtin.shell: |
+    dirname "{{ redis_log_path.stdout }}"
+  register: redis_log_dir_result
+  changed_when: false
+
+- name: Définir le répertoire parent des logs Redis
+  ansible.builtin.set_fact:
+    redis_log_dir: "{{ redis_log_dir_result.stdout | dirname }}"
+    redis_log_dir: "{{ redis_log_dir_result.stdout }}"
+
+# Vérifier si une configuration de rotation existe déjà
+- name: Vérifier si une configuration de rotation existe déjà
+  ansible.builtin.shell: |
+    grep -q "{{ redis_log_dir }}/*.log" /etc/logrotate.d/redis 2>/dev/null || echo "not_found"
+  register: existing_rotation
+  changed_when: false
+
+# Créer le fichier de configuration logrotate s'il n'existe pas
+- name: Créer le fichier de configuration logrotate
+  template:
+    src: redis_logrotate.j2
+    dest: /etc/logrotate.d/redis
+    mode: '0644'
+  when: existing_rotation.stdout == "not_found"
+  notify: Redémarrer l'agent Datadog
+
+# Vérifier si le service logrotate est installé
+- name: Vérifier si logrotate est installé
+  package_facts:
+    manager: auto
+  register: pkg_facts
+
+- name: Installer logrotate si nécessaire
+  package:
+    name: logrotate
+    state: present
+  when: "'logrotate' not in ansible_facts.packages"
+
+# Vérifications après configuration
+- name: Redémarrer l'agent Datadog
+  ansible.builtin.systemd:
+    name: datadog-agent
+    state: restarted
+  when: "'datadog-agent' in ansible_facts.services"
+
+- name: Vérifier les chemins de logs dans la configuration Datadog
+  ansible.builtin.shell: |
+    datadog-agent status | grep "Path: /" -B1 -A3
+  register: datadog_log_paths
+  when: "'datadog-agent' in ansible_facts.services"
+  changed_when: false
+  ignore_errors: yes
+
+- name: Vérifier l'intégration Redis de Datadog
+  ansible.builtin.shell: |
+    datadog-agent check redisdb
+  register: datadog_redis_check
+  when: "'datadog-agent' in ansible_facts.services"
+  changed_when: false
+  ignore_errors: yes
+  
+- name: Afficher le résultat des tâches précédentes
+  ansible.builtin.debug:
+    msg: "{{ existing_rotation.stdout | default('Non trouvé') }} - {{ datadog_log_paths.stdout | default('Non trouvé') }} - {{ datadog_redis_check.stdout | default('Non trouvé') }}"

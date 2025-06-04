@@ -1,0 +1,52 @@
+---
+# This is the main task file for the verify_redis_sentinel_dd_agent_active role.
+# Add tasks here to verify that Redis, Sentinel, and Datadog Agent are active.
+
+- name: Collecter les faits des services
+  ansible.builtin.service_facts:
+
+# - name: Afficher le statut du service Redis
+#   ansible.builtin.debug:
+#     msg: "Le service Redis est actif"
+#   when: ansible_facts.services[redis_service_name].state == 'active'
+#   ignore_errors: yes
+
+# - name: Afficher le statut du service Sentinel
+#   ansible.builtin.debug:
+#     msg: "Le service Sentinel est actif"
+#   when: ansible_facts.services[sentinel_service_name].state == 'active'
+#   ignore_errors: yes
+
+# - name: Afficher le statut de l'agent Datadog
+#   ansible.builtin.debug:
+#     msg: "L'agent Datadog est {{ ansible_facts.services['datadog-agent'].state }}"
+#   when: ansible_facts.services['datadog-agent'].state == 'running'
+#   ignore_errors: yes
+
+
+
+# - name: Afficher le résultat des statuts Redis et Sentinel
+#   ansible.builtin.debug:
+#     msg: |
+#       Résultat du statut Redis: {{ redis_status }}
+#       Résultat du statut Sentinel: {{ sentinel_status }}
+#       Résultat du statut Datadog Agent: {{ dd_agent_status }}
+
+
+- name: Définir le statut des services
+  set_fact:
+    redis_status: "{{ '✔️ Actif' if redis_service_name in ansible_facts.services and ansible_facts.services[redis_service_name].state == 'active' else '❌ Inactif' }}"
+    sentinel_status: "{{ '✔️ Actif' if sentinel_service_name in ansible_facts.services and ansible_facts.services[sentinel_service_name].state == 'active' else '❌ Inactif' }}"
+    dd_agent_status: "{{ '✔️ Actif' if 'datadog-agent' in ansible_facts.services and ansible_facts.services['datadog-agent'].state == 'running' else '❌ Inactif' }}"
+
+- name: Afficher les statuts des services
+  ansible.builtin.debug:
+    msg:
+      - "Service Redis: {{ redis_status }}"
+      - "Service Sentinel: {{ sentinel_status }}"
+      - "Agent Datadog: {{ dd_agent_status }}"
+
+# - name: Échouer si un service est inactif
+#   ansible.builtin.fail:
+#     msg: "Un ou plusieurs services sont inactifs. Arrêt du playbook."
+#   when: redis_status != '✔️ Actif' or sentinel_status != '✔️ Actif' or dd_agent_status != '✔️ Actif'

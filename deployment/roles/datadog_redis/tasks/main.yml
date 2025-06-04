@@ -1,0 +1,59 @@
+---
+- name: Vérifier si l'agent Datadog est installé
+  ansible.builtin.service_facts:
+
+- name: Afficher un message si l'agent Datadog n'est pas installé
+  ansible.builtin.debug:
+    msg: "L'agent Datadog n'est pas installé sur cet hôte. La configuration a été créée mais l'agent ne sera pas redémarré."
+  when: "'datadog-agent' not in ansible_facts.services" 
+
+- name: Vérifier si le répertoire de configuration Datadog existe
+  ansible.builtin.stat:
+    path: /etc/datadog-agent/conf.d/redisdb.d
+  register: datadog_conf_dir
+
+- name: Créer le répertoire de configuration Datadog si nécessaire
+  ansible.builtin.file:
+    path: /etc/datadog-agent/conf.d/redisdb.d
+    state: directory
+    mode: '0755'
+  when: not datadog_conf_dir.stat.exists
+
+- name: Obtenir le chemin du fichier de log Redis
+  ansible.builtin.shell:
+    cmd: grep '^logfile' /etc/redis/redis.conf | awk '{print $2}' | tr -d '"'
+  register: redis_log_path
+  changed_when: false
+  failed_when: false
+
+- name: Obtenir le chemin du fichier de log Sentinel
+  ansible.builtin.shell:
+    cmd: grep '^logfile' /etc/redis/sentinel.conf | awk '{print $2}' | tr -d '"'
+  register: sentinel_log_path
+  changed_when: false
+  failed_when: false
+
+- name: Extraire le trigramme du nom d'hôte
+  ansible.builtin.set_fact:
+    trigram_value: "{{ ansible_hostname[6:9] }}"
+
+# - name: Vérifier et activer les options de collecte de métriques
+#   ansible.builtin.set_fact:
+#     collect_command_stats: "{{ collect_command_stats | default(true) }}"
+#     collect_info: "{{ collect_info | default(true) }}"
+#     collect_keyspace_stats: "{{ collect_keyspace_stats | default(true) }}"
+#     collect_memory_stats: "{{ collect_memory_stats | default(true) }}"
+#     collect_replication_stats: "{{ collect_replication_stats | default(true) }}"
+#     collect_slowlog_stats: "{{ collect_slowlog_stats | default(true) }}"
+#     auto_discovery: "{{ auto_discovery | default(true) }}"
+#     discovery_interval: "{{ discovery_interval | default(60) }}"
+#     slowlog_max_len: "{{ slowlog_max_len | default(128) }}"
+#     redis_port: "{{ redis_port | default(6379) }}"
+#     redis_host: "{{ redis_host | default('localhost') }}"
+
+- name: Appliquer le template redis.j2
+  ansible.builtin.template:
+    src: templates/redis.j2
+    dest: /etc/datadog-agent/conf.d/redisdb.d/{{ trigram_value }}_conf.yml
+    mode: '0644'
+  notify: Redémarrer l'agent Datadog

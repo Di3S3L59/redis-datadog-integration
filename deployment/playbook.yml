@@ -1,0 +1,26 @@
+# - name: Clean up and update known hosts
+#   hosts: all
+#   tasks:
+#     - name: Remove incorrect known hosts entry
+#       command: ssh-keygen -R {{ ansible_host }}
+#       ignore_errors: yes
+---
+- name: Datadog configuration for redis integration
+  hosts: local
+  gather_facts: true
+  become: true
+  # become_method: sudo
+  # become_user: root
+  roles:
+    # Vérification que les services tournent sur les VM > sort du playbook avec message explicite si manque un prérequis
+   - role: gather_services_redis_and_sentinel_name
+   - role: verify_redis_sentinel_dd_agent_active
+   - role: configure_services
+   - role: gather_redis_roles
+   - role: redis_restart
+   - role: datadog_redis
+   - role: log_rotation
+   
+# - import_playbook: services_configuration.yml  
+# - import_playbook: orchestrate_restart_nodes.yml   
+...

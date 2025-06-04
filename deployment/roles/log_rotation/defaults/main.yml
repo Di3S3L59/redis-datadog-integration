@@ -1,0 +1,11 @@
+---
+# Configuration de la rotation des logs Redis
+redis_logrotate_conf: /etc/logrotate.d/redis
+redis_log_retention_days: 7
+redis_log_compress: true
+redis_log_delaycompress: true
+redis_log_missingok: true
+redis_log_notifempty: true
+redis_log_permissions: "0644"
+redis_log_owner: redis
+redis_log_group: redis 

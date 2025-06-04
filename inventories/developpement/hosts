@@ -1,0 +1,14 @@
+; [linux]
+; rsxsrv0ua20004 ansible_host=rsxsrv0ua20004 eul_pam_host=rsxsrv0ua20004
+[local]
+192.168.1.103  ansible_hostanme=srvsrvioo101 ansible_user=root  ansible_password=542523Aaa!
+192.168.1.39  ansible_hostanme=srvsrvioo101 ansible_user=root  ansible_password=542523Aaa!
+192.168.1.56  ansible_hostanme=srvsrvioo101 ansible_user=root  ansible_password=542523Aaa!
+; [linux]
+; uaexcirt01 ansible_host=uaexcirt01 eul_pam_host=uaexcirt01
+; uabsb20d02 ansible_host=uabsb20d02 eul_pam_host=uabsb20d02
+; uaexegsp02 ansible_host=uaexegsp02 eul_pam_host=uaexegsp02
+; uaexegsp01 ansible_host=uaexegsp01 eul_pam_host=uaexegsp01
+; [windows]
+; waexcirr03 ansible_host=waexcirr03 eul_pam_hostwaexcirr03
+; waexb20d07 ansible_host=waexb20d07 eul_pam_host=waexb20d07

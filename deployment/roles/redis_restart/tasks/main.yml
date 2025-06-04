@@ -1,0 +1,76 @@
+---
+- name: Afficher les informations de débogage sur les groupes
+  ansible.builtin.debug:
+    msg:
+      - "Hôte actuel : {{ inventory_hostname }}"
+      - "Groupes de l'hôte : {{ group_names }}"
+      - "Est-ce un master ? : {{ 'redis_master' in group_names }}"
+      - "Est-ce un replica ? : {{ 'redis_replica' in group_names }}"
+      - "Liste des masters : {{ groups['redis_master'] | default([]) }}"
+      - "Liste des replicas : {{ groups['redis_replica'] | default([]) }}"
+
+# ===== REDÉMARRAGE DE SENTINEL =====
+
+- name: Afficher le message de redémarrage du Sentinel sur les REPLICAS
+  ansible.builtin.debug:
+    msg: "🔁 Redémarrage du Sentinel sur le replica {{ inventory_hostname }}"
+  when: "'redis_replica' in group_names"
+
+- name: 🔁 Restart Sentinel sur les REPLICAS
+  import_tasks: restart_sentinel.yml
+  when: 
+    - "'redis_replica' in group_names"
+    - sentinel_service_name is defined
+    - sentinel_service_name in ansible_facts.services
+    - ansible_facts.services[sentinel_service_name].state == 'active'
+
+- name: Afficher le message de redémarrage du Sentinel sur le MASTER
+  ansible.builtin.debug:
+    msg: "🔁 Redémarrage du Sentinel sur le master {{ inventory_hostname }}"
+  when: "'redis_master' in group_names"
+
+- name: 🔁 Restart Sentinel sur le MASTER
+  import_tasks: restart_sentinel.yml
+  when: 
+    - "'redis_master' in group_names"
+    - sentinel_service_name is defined
+    - sentinel_service_name in ansible_facts.services
+    - ansible_facts.services[sentinel_service_name].state == 'active'
+
+# ===== REDÉMARRAGE DE REDIS =====
+
+# - name: Afficher le message de redémarrage de Redis sur les REPLICAS
+#   ansible.builtin.debug:
+#     msg: "🔁 Redémarrage de Redis sur le replica {{ inventory_hostname }}"
+#   when: "'redis_replica' in group_names"
+
+# - name: 🔁 Restart Redis sur les REPLICAS
+#   import_tasks: restart_replicas.yml
+#   when: "'redis_replica' in group_names"
+
+# - name: Afficher le message de redémarrage de Redis sur le MASTER
+#   ansible.builtin.debug:
+#     msg: "🔁 Redémarrage de Redis sur le master {{ inventory_hostname }}"
+#   when: "'redis_master' in group_names"
+
+# - name: 🔁 Restart Redis sur le MASTER
+#   import_tasks: restart_master.yml
+#   when: "'redis_master' in group_names"
+
+# Séquence de redémarrage avec les réplicas en premier
+- name: Inclure les tâches de redémarrage des réplicas
+  ansible.builtin.import_tasks: restart_replica.yml
+  when: "'redis_replica' in group_names"
+
+- name: Vérifier que le nombre de réplicas connectés est égal à 2
+  ansible.builtin.shell: "redis-cli {{ redis_cli_options }} INFO REPLICATION | grep connected_slaves | cut -d: -f2"
+  register: connected_slaves_count
+  until: connected_slaves_count.stdout.strip() == '2'
+  retries: 3
+  delay: 10
+  ignore_errors: yes
+  when: "'redis_master' in group_names"
+
+- name: Inclure les tâches de redémarrage du master
+  ansible.builtin.import_tasks: restart_master.yml
+  when: "'redis_master' in group_names"

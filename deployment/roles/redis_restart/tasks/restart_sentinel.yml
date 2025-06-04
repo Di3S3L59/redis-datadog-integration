@@ -1,0 +1,19 @@
+---
+- name: Déboguer les conditions de redémarrage de Sentinel
+  ansible.builtin.debug:
+    msg:
+      - "Nom du service Sentinel : {{ sentinel_service_name | default('Non défini') }}"
+      - "Le service Sentinel est-il défini ? : {{ sentinel_service_name is defined }}"
+      - "Le service est dans l'état suivant: {{ ansible_facts.services[sentinel_service_name].state }}"
+      # - "État du service Sentinel : {{ ansible_facts.services[sentinel_service_name].state | default('Non défini') if sentinel_service_name is defined and sentinel_service_name in ansible_facts.services else 'Service non trouvé' }}"
+      # - "Le service Sentinel est-il en cours d'exécution ? : {{ ansible_facts.services[sentinel_service_name].state == 'running' if sentinel_service_name is defined and sentinel_service_name in ansible_facts.services else 'Non applicable' }}"
+      # - "Le service Sentinel est-il activé ? : {{ ansible_facts.services[sentinel_service_name].status.ActiveState == 'active' if sentinel_service_name is defined and sentinel_service_name in ansible_facts.services else 'Non applicable' }}"
+
+- name: Restart Sentinel (uniquement si le service est en cours d'exécution)
+  ansible.builtin.systemd:
+    name: "{{ sentinel_service_name }}"
+    state: restarted
+  when:
+    - sentinel_service_name is defined
+    - sentinel_service_name in ansible_facts.services
+    - ansible_facts.services[sentinel_service_name].state == 'active'

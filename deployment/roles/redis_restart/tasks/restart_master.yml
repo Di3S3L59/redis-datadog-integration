@@ -1,0 +1,31 @@
+---
+- name: Vérifier l'état des réplicas avant redémarrage du master
+  ansible.builtin.shell: "redis-cli {{ redis_cli_options }} INFO REPLICATION | grep connected_slaves"
+  register: replicas_count_before
+  ignore_errors: yes
+
+- name: Redémarrer le service Redis sur le master
+  ansible.builtin.systemd:
+    name: "{{ redis_service_name }}"
+    state: restarted
+  when:
+    - redis_service_name is defined
+    - redis_service_name in ansible_facts.services
+    - ansible_facts.services[redis_service_name].state == 'active'
+
+- name: Attendre que le service Redis soit opérationnel
+  ansible.builtin.wait_for:
+    port: 6379
+    timeout: 60
+
+- name: Vérifier que le master est opérationnel
+  ansible.builtin.shell: "redis-cli {{ redis_cli_options }} PING"
+  register: master_check
+  until: master_check.rc == 0
+  retries: 3
+  delay: 10
+  ignore_errors: yes
+
+- name: Afficher le statut du master
+  ansible.builtin.debug:
+    msg: "Le master Redis est opérationnel"

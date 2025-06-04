@@ -1,0 +1,58 @@
+---
+- name: Store Redis Password in variable
+  ansible.builtin.shell:
+    cmd: grep '^requirepass' /etc/redis/redis.conf | awk '{print $2}' | tr -d '"'
+  register: redis_password_result
+  changed_when: false
+- name: Debug - Display Redis password
+  ansible.builtin.debug:
+    msg: "Redis password: {{ redis_password_result.stdout }}"
+- name: Store Redis password in fact variable
+  ansible.builtin.set_fact:
+    rediscli_auth: "{{ redis_password_result.stdout }}"
+
+- name: Check if CA cert is configured
+  ansible.builtin.command:
+    cmd: grep "^tls-ca-cert-file" /etc/redis/redis.conf
+  register: tls_cacert_check
+  changed_when: false
+  failed_when: false
+- name: Debug - Check of CA cert path
+  ansible.builtin.debug:
+    msg: "{{ 'Cacert path in redis.conf' if tls_cacert_check.rc == 0 else 'No CA cert populated in redis.conf !' }}"
+- name: Store path of CA cert
+  ansible.builtin.shell:
+    # set -o pipefail
+    grep '^tls-ca-cert-file' /etc/redis/redis.conf | awk '{print $2}' | tr -d '"'
+  register: tls_cert_path
+  changed_when: false
+  when: tls_cacert_check.rc == 0
+- name: Debug - Get path of CA cert in redis.conf
+  ansible.builtin.debug:
+    msg: "{{ 'Cacert path in redis.conf: {{tls_cert_path}}' if tls_cacert_check.rc == 0 else 'No CA cert populated in redis.conf!' }}"
+
+- name: Définir les options redis-cli
+  ansible.builtin.set_fact:
+    redis_cli_options: "{{ '--tls --cacert ' + tls_cert_path.stdout if tls_cacert_check.rc == 0 else '' }}{{ ' -a ' + redis_password_result.stdout if redis_password_result.stdout else '' }}"
+
+- name: Détecter le rôle de Redis
+  ansible.builtin.shell:
+    cmd: "redis-cli {{ redis_cli_options }} INFO REPLICATION | grep 'role:' | cut -d: -f2"
+  register: redis_role
+  changed_when: false
+
+- name: Afficher le rôle Redis détecté
+  ansible.builtin.debug:
+    msg: "Rôle Redis détecté : {{ redis_role.stdout }}"
+
+# Création des groupes dynamiques
+- name: Grouper les hôtes par rôle Redis
+  group_by:
+    key: "redis_{{ 'master' if 'master' in redis_role.stdout else 'replica' }}"
+
+# - name: Afficher les informations des groupes dynamiques
+#   ansible.builtin.debug:
+#     msg:
+#     - "Hôte actuel : {{ inventory_hostname }} "
+#     - "Redis Master : {{ groups['redis_master'] | default([]) }}"
+#     - "Redis Replicas : {{ groups['redis_replica'] | default([]) }}"

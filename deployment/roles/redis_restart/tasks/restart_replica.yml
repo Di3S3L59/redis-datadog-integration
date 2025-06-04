@@ -1,0 +1,51 @@
+---
+- name: Vérifier l'état de la réplication avant redémarrage
+  ansible.builtin.shell: "redis-cli {{ redis_cli_options }} INFO REPLICATION | grep master_link_status"
+  register: replication_status_before
+  ignore_errors: yes
+
+- name: Redémarrer le service Redis sur le réplica
+  ansible.builtin.systemd:
+    name: "{{ redis_service_name }}"
+    state: restarted
+  when:
+    - redis_service_name is defined
+    - redis_service_name in ansible_facts.services
+    - ansible_facts.services[redis_service_name].state == 'active'
+
+- name: Attendre que le service Redis soit opérationnel
+  ansible.builtin.wait_for:
+    port: 6379
+    timeout: 60
+- name: Afficher le statut de la liaison avec le maître
+  ansible.builtin.shell: "redis-cli {{ redis_cli_options }} INFO REPLICATION | grep master_link_status"
+  register: master_link_status
+  ignore_errors: yes
+
+- name: Afficher le résultat du statut de la liaison avec le maître
+  ansible.builtin.debug:
+    msg: "Statut de la liaison avec le maître : {{ master_link_status.stdout }}"
+
+
+- name: Vérifier la synchronisation avec le master
+  ansible.builtin.shell: |
+    for i in {1..12}; do
+      status=$(redis-cli {{ redis_cli_options }} INFO REPLICATION | grep master_link_status | cut -d: -f2)
+      echo "Current status: $status"  # Ajoutez cette ligne pour déboguer
+      if echo "$status" | grep -q "up"; then
+        echo "Synchronisation réussie"
+        exit 0
+      fi
+      sleep 5
+    done
+    echo "Échec de la synchronisation"
+    exit 1
+  register: sync_check
+  until: sync_check.rc == 0
+  retries: 3
+  delay: 10
+  ignore_errors: yes
+
+- name: Afficher le statut de la synchronisation
+  ansible.builtin.debug:
+    msg: "{{ sync_check.stdout_lines }}" 

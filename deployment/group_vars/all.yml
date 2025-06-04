@@ -1,0 +1,6 @@
+---
+redis_conf:  "/etc/redis/redis.conf"
+sentinel_conf:  "/etc/redis/sentinel.conf"  
+redis_conf_acl: "user user_supervision on sanitize-payload XXXXX resetchannels -@all +ping +config|get +latency|latest +client|list +client|info +dbsize +slowlog +info +memory|usage"
+sentinel_conf_acl: "user user_supervision on sanitize-payload XXXXX resetchannels -@all +sentinel|get-master-addr-by-name"
+datadog_redis_path: "/etc/datadog-agent/conf.d/redisdb.d/"
